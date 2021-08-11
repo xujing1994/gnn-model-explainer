@@ -30,6 +30,7 @@ from torch.autograd import Variable
 # from rdkit import Chem
 
 import utils.featgen as featgen
+import pickle
 
 use_cuda = torch.cuda.is_available()
 
@@ -561,6 +562,53 @@ def read_graphfile(datadir, dataname, max_nodes=None, edge_labels=False):
         graphs.append(nx.relabel_nodes(G, mapping))
     return graphs
 
+class S2VGraph(object):
+    def __init__(self, g, label, node_tags=None, node_features=None):
+        '''
+            g: a networkx graph
+            label: an integer graph label
+            node_tags: a list of integer node tags
+            node_features: a torch float tensor, one-hot representation of the tag that is used as input to neural nets
+            edge_mat: a torch long tensor, contain edge list, will be used to create torch sparse tensor
+            neighbors: list of neighbors (without self-loop)
+        '''
+        self.label = label
+        self.g = g
+        self.node_tags = node_tags
+        self.neighbors = []
+        self.node_features = 0
+        self.edge_mat = 0
+
+        self.max_neighbor = 0
+
+def load_pkl(filename):
+    with open(filename, 'rb') as input:
+        graphs = pickle.load(input)
+    return graphs
+
+def read_tudataset(datadir):
+    '''
+        dataset: name of dataset
+        test_proportion: ratio of test train split
+        seed: random seed for random splitting of dataset
+    '''
+
+    print('loading data')
+    g_list = []
+    label_dict = {}
+    feat_dict = {}
+
+    #filename = os.path.join(datadir, dataset, dataset) + '.txt'
+    filename = "data/TUDataset/2_family_100.pkl"
+    graphs = load_pkl(filename)
+    for graph in graphs:
+        G = graph.g
+        G.graph['label'] = graph.label
+        for u in graph.g.nodes():
+            G.nodes[u]['feat'] = np.array(graph.node_features[u].tolist())
+        G.graph['feat_dim'] = graph.node_features.shape[1]
+        g_list.append(G)
+    return g_list
 
 def read_biosnap(datadir, edgelist_file, label_file, feat_file=None, concat=True):
     """ Read data from BioSnap
